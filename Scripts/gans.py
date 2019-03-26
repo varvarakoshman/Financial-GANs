@@ -54,6 +54,7 @@ class Generator:
                 result[indices_to_replace_unique[j]] = torch.mm(result[indices_to_replace_unique[j]].unsqueeze(0),
                                                                 torch.transpose(self.A, 0, 1))
             result = torch.tanh(result)
+        result = result.view(x_len, 1)
         return result
 
     def generate(self, x):
@@ -124,25 +125,24 @@ def train_gen(gen, dis, z_noise):
     fake_all_m = torch.stack([gen.generate(z_noise[m]) for m in range(m_batch_size)])
     out = dis(fake_all_m)
     loss = cross_entropy_loss(out, torch.ones(fake_all_m.shape[0]))
-
-    loss.backward()
+    loss_mean = torch.mean(loss)
+    loss_mean.backward()
 
     gen.A.add_(-learning_rate, gen.A.grad.data)
     return loss
 
 
-# TODO: run the same with optimizer
 def train_dis(dis, gen, x_real, z_noise):
     out_real = dis.forward(x_real)
-    loss_real = cross_entropy_loss(out_real, torch.ones(out_real.shape[0]))
+    loss_real = cross_entropy_loss(out_real, torch.ones(out_real.shape[0])).squeeze(1)
 
-    fake_all_m = torch.stack([gen.generate(z_noise[m]) for m in range(m_batch_size)])
-    print(fake_all_m)
+    fake_all_m = torch.stack([gen.generate(z_noise[m]) for m in range(m_batch_size)]).squeeze(2)
     out_fake_all_m = dis(fake_all_m)
-    loss_fake = cross_entropy_loss(out_fake_all_m, torch.zeros(out_fake_all_m.shape[0]))
+    loss_fake = cross_entropy_loss(out_fake_all_m, torch.zeros(out_fake_all_m.shape[0])).squeeze(1)
 
     loss = loss_real + loss_fake
-    loss.backward()
+    loss_mean = torch.mean(loss)
+    loss_mean.backward() #TODO: investigate inplace operation on one of the variables
 
     d_weight = dis.parameters()[0]
     d_weight.data.add_(-learning_rate, d_weight.grad.data)
@@ -158,8 +158,7 @@ def time_since(since):
 
 
 if __name__ == "__main__":
-    # PREPARING DATA
-    # TODO: take not real data, but white noise
+    # PREPARING DATA #TODO: take not real data, but white noise
     with open('result.txt', 'r') as in_file:
         lines = in_file.read().splitlines()
         stripped = [line.replace(",", " ").split() for line in lines]
@@ -185,8 +184,7 @@ if __name__ == "__main__":
     start = time.time()
     for epoch in range(1, epochs + 1):
         for k_step in range(k):
-            for _, (data) in enumerate(loader):
-                print(data)
+            for _, data in enumerate(loader):
                 z_noise = noise(m_batch_size, sample_size).double()
                 x_real = data.double()  # TODO: apply normalization
 
