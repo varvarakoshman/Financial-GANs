@@ -10,8 +10,8 @@ from ordered_set import OrderedSet
 from torch.utils.data import Dataset
 from copy import deepcopy
 
-learning_rate = 0.001
-epochs = 15
+learning_rate = 0.01
+epochs = 5
 print_every = 25
 plot_every = 1
 m_batch_size = 20
@@ -140,7 +140,7 @@ def train_gen(gen, dis, z_noise):
 def train_dis(dis, gen, x_real, z_noise):
     #optimizer.zero_grad()
     dis.zero_grad()
-    
+
     out_real = dis(x_real)
     loss_real = cross_entropy_loss(out_real, torch.ones(out_real.shape[0])).squeeze(1)
     loss_real_mean = torch.mean(loss_real)
@@ -171,9 +171,9 @@ def time_since(since):
     return '%dm %ds' % (m, s)
 
 
-def plot_losses(all_losses_g, all_losses_d):#!
+def plot_losses(all_losses_g):#!
     ax2 = plt.subplot()
-    ax2.plot(all_losses_g, 'g', label='all_losses_g') #!
+    #ax2.plot(all_losses_g, 'g', label='all_losses_g') #!
     ax2.plot(all_losses_d, 'b', label='all_losses_d')
     ax2.legend()
     plt.show()
@@ -261,18 +261,18 @@ if __name__ == '__main__':
             x_real = torch.add(-set_mean, torch.log(x_real))  # normalization
 
             loss_d, out_real = train_dis(dis, gen, x_real, z_noise)
-            loss_g = train_gen(gen, dis, z_noise) #!
+            #loss_g = train_gen(gen, dis, z_noise) #!
             current_loss_d += loss_d
-            current_loss_g += loss_g #!
+            #current_loss_g += loss_g #!
 
             if index % 10 == 0:
-                print('%s (%d %d%%) %.10f %.10f' % (
-                    time_since(start), iter, index / dataset_size * epochs, loss_d, loss_g))  #! ,loss_g
+                print('%s (%d %d%%) %.10f' % (
+                    time_since(start), iter, index / dataset_size * epochs, loss_d))  #! ,loss_g
 
             if index % plot_every == 0 and index != 0:
                 all_losses_d.append(current_loss_d / plot_every)
-                all_losses_g.append(current_loss_g / plot_every)
+                #all_losses_g.append(current_loss_g / plot_every)
                 current_loss_d = 0
-                current_loss_g = 0
+                #current_loss_g = 0
 
-    plot_losses(all_losses_g, all_losses_d)  # all_losses_g, #!
+    plot_losses(all_losses_g)  # all_losses_g, #!
