@@ -14,7 +14,7 @@ learning_rate_dis = 0.01
 learning_rate_gen = 0.005
 epochs_dis = 10
 epochs_gen = 1
-epochs_parallel = 5
+epochs_parallel = 10
 print_every = 25
 plot_every = 5
 m_batch_size = 5
@@ -322,7 +322,7 @@ def main():
                 loss_g = train_gen(gen_silly, dis_silly, z_noise)
                 current_loss_g += loss_g
 
-                if (index + 1) % 5 == 0:
+                if (index + 1) % 1 == 0:
                     print('%s (%d %d%%) %.10f %10f' % (
                         time_since(start), epoch, (index + 1) / dataset_size * 100, loss_d, loss_g))
 
