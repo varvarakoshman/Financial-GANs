@@ -10,17 +10,21 @@ from ordered_set import OrderedSet
 from torch.utils.data import Dataset
 from copy import deepcopy
 
-learning_rate = 0.01
-learning_rate_gen = 0.01
-epochs = 5
+learning_rate_dis = 0.01
+learning_rate_gen = 0.005
+epochs_dis = 10
+epochs_gen = 1
+epochs_parallel = 5
 print_every = 25
-plot_every = 1
-m_batch_size = 20
-n_hidden = 100
-dataset_size_to_generate = 1000
+plot_every = 5
+m_batch_size = 5
+dataset_size_to_generate = 100
 hardcoded_n_in_batch = 4  # set in java code when downloading real data
 size_for_basis_plot = 8
-weights_for_generation = [[0.7, 0.89], [0.99, 0.7]]
+zero_gen_grad = torch.zeros((2, 2)).double()  # for zeroing the gradient
+weights_for_generation = [[1., 0.5], [1., 0.5]]
+weights_random = torch.DoubleTensor(2, 2).uniform_(-1, 1)
+k = 5  # number of steps to apply to discriminator
 
 
 class CSVDataset(Dataset):
@@ -46,11 +50,11 @@ class Generator:
     # (which is in-place operation and not supported by autograd)
     def forward(self, x):
         x_len = len(x)
-        n_layers = int(np.log2(len(x)))
-        dim = tuple([2 for _ in range(n_layers)])
+        n_times = int(np.log2(len(x)))
+        dim = tuple([2 for _ in range(n_times)])
         x = x.view(*dim)
         result = x.double()
-        for i in range(n_layers - 1, -1, -1):
+        for i in range(n_times - 1, -1, -1):
             indices_to_replace = deepcopy(self.indices)
             for j in range(x_len):
                 indices_to_replace[:][j][i] = [0, 1]
@@ -63,7 +67,7 @@ class Generator:
                 slice = torch.mm(result[indices_unique[j]].view(*(1, 2)), torch.transpose(self.A, 0, 1)).view(2)
                 temp2[indices_unique[j]] = slice
                 result = result * temp1 + temp2
-            # result = torch.tanh(result)  # adding non-linearity
+        result = torch.tanh(result)  # adding non-linearity
         result = result.view(x_len, 1)
         return result
 
@@ -91,23 +95,20 @@ def prepare_indices(x):
 
 
 class Discriminator(nn.Module):
-    def __init__(self, input_size, hidden_size):
+    def __init__(self, input_size):
         super(Discriminator, self).__init__()
 
         self.input_size = input_size
-        # self.hidden_size = hidden_size
 
         self.layer1 = nn.Linear(input_size, input_size, bias=True).double()
-        # self.layer2 = nn.Linear(input_size, input_size, bias=True).double()
-        self.layer3 = nn.Linear(input_size, 1, bias=True).double()
+        self.layer2 = nn.Linear(input_size, 1, bias=True).double()
 
         self.relu = nn.LeakyReLU()
         self.sigmoid = nn.Sigmoid()
 
     def forward(self, input):
         x = self.relu(self.layer1(input))
-        # x = self.relu(self.layer2(x))
-        x = self.sigmoid(self.layer3(x))
+        x = self.sigmoid(self.layer2(x))
         return x
 
 
@@ -117,50 +118,42 @@ def get_noise(sample_size, m_batch_size):
     return noise_sample
 
 
-def cross_entropy_loss(actual, label):
+def binary_cross_entropy(actual, label):
     if label[0] == 1:
         return -torch.log(actual)
     else:
         return -torch.log(1 - actual)
 
 
-def train_gen(gen_trainable, dis, z_noise):
-    gen_trainable.A.grad = torch.zeros((2, 2)).double()  # ?
+def train_gen(gen_trainable, dis_fixed_clever, z_noise):
+    gen_trainable.A.grad = zero_gen_grad
 
-    fake_all_m = torch.stack([gen_trainable.generate(z_noise[m]) for m in range(m_batch_size)]).squeeze(2)
-    out = dis(fake_all_m)
-    loss = cross_entropy_loss(out, torch.ones(fake_all_m.shape[0])).squeeze(1)
+    _fake_all_m = torch.stack([gen_trainable.generate(z_noise[m]) for m in range(m_batch_size)]).squeeze(2)
+    out = dis_fixed_clever(_fake_all_m)
+    # print(out)
+    loss = binary_cross_entropy(out, torch.ones(_fake_all_m.shape[0])).squeeze(1)
     loss_mean = torch.mean(loss)
+    # print(loss_mean)
     loss_mean.backward()
 
-    gen.A.add(-learning_rate_gen, gen.A.grad)  # !
-
+    gen_trainable.A = gen_trainable.A - learning_rate_gen * gen_trainable.A.grad
+    # print("gen weights/training/: ", gen_trainable.A)
     return loss_mean
 
 
-def train_dis(dis, gen, x_real, z_noise):
-    # optimizer.zero_grad()
-    dis.zero_grad()
+def train_dis(dis_trainable, gen_fixed_silly, x_real, z_noise, optimizer):
+    optimizer.zero_grad()
+    fake_all_m = torch.stack([gen_fixed_silly.generate(z_noise[m]) for m in range(m_batch_size)]).squeeze(2)
 
-    out_real = dis(x_real)
-    loss_real = cross_entropy_loss(out_real, torch.ones(out_real.shape[0])).squeeze(1)
-    loss_real_mean = torch.mean(loss_real)
+    out_real = dis_trainable(x_real)
+    loss_real = binary_cross_entropy(out_real, torch.ones(out_real.shape[0]).long()).squeeze(1)
 
-    fake_all_m = torch.stack([gen.generate(z_noise[m]) for m in range(m_batch_size)]).squeeze(2)
-    out_fake_all_m = dis(fake_all_m)
-    loss_fake = cross_entropy_loss(out_fake_all_m, torch.zeros(out_fake_all_m.shape[0])).squeeze(1)
-    loss_fake_mean = torch.mean(loss_fake)
+    out_fake_all_m = dis_trainable(fake_all_m)
+    loss_fake = binary_cross_entropy(out_fake_all_m, torch.zeros(out_fake_all_m.shape[0]).long()).squeeze(1)
 
-    loss_mean = loss_real_mean + loss_fake_mean  # !
+    loss_mean = torch.mean(loss_fake) + torch.mean(loss_real)
     loss_mean.backward()
-
-    # optimizer = torch.optim.Adam(dis.parameters())
-    # optimizer.step()
-
-    for d_weight in dis.parameters():
-        d_weight.data.add_(-learning_rate, d_weight.grad.data)
-        # print("grad", d_weight.grad.data)
-        # print("weights", d_weight.data)
+    optimizer.step()
 
     return loss_mean
 
@@ -172,17 +165,27 @@ def time_since(since):
     return '%dm %ds' % (m, s)
 
 
-def plot_losses(all_losses_d, all_losses_g):  # !
+def plot_losses(all_losses_d, all_losses_g):
+    ax1 = plt.subplot()
+    ax1.plot(all_losses_d, 'b', label='all_losses_d')
+    ax1.legend()
+    plt.show()
     ax2 = plt.subplot()
-    ax2.plot(all_losses_g, 'g', label='all_losses_g')  # !
-    ax2.plot(all_losses_d, 'b', label='all_losses_d')
+    ax2.plot(all_losses_g, 'g', label='all_losses_g')
     ax2.legend()
+    plt.show()
+
+
+def plot_losses_together(all_losses_d, all_losses_g):
+    ax1 = plt.subplot()
+    ax1.plot(all_losses_d, 'b', label='all_losses_d')
+    ax1.plot(all_losses_g, 'g', label='all_losses_g')
+    ax1.legend()
     plt.show()
 
 
 def plot_initial():
     noise = get_noise(1, hardcoded_n_in_batch).double()
-    # noise = torch.tan(noise)
     gen = Generator(prepare_indices(noise[0]), torch.from_numpy(np.array(weights_for_generation)))
     fake = gen.generate(noise[0])
 
@@ -220,73 +223,125 @@ def generate_dataset():
                 f.write("\n")
 
 
-if __name__ == '__main__':
-    generate_dataset()
-    # PREPARING DATA
-    with open('data/generated.txt', 'r') as in_file:
-        lines = in_file.read().splitlines()
-        stripped = [line.replace(",", " ").split() for line in lines]
-        with open('real.csv', 'w', newline='') as out_file:
-            writer = csv.writer(out_file, delimiter=',', dialect='excel')
-            writer.writerows(stripped)
+def main():
+    if __name__ == '__main__':
+        generate_dataset()
+        # PREPARING DATA
+        with open('data/generated.txt', 'r') as in_file:
+            lines = in_file.read().splitlines()
+            stripped = [line.replace(",", " ").split() for line in lines]
+            with open('real.csv', 'w', newline='') as out_file:
+                writer = csv.writer(out_file, delimiter=',', dialect='excel')
+                writer.writerows(stripped)
 
-    dataset = CSVDataset()
-    loader = torch.utils.data.DataLoader(dataset=dataset, batch_size=m_batch_size, shuffle=True, num_workers=1)
+        dataset = CSVDataset()
+        loader = torch.utils.data.DataLoader(dataset=dataset, batch_size=m_batch_size, shuffle=True, num_workers=1)
 
-    sample_size = len(next(enumerate(loader))[1][0])
-    set_mean = torch.mean(torch.stack([data for _, data in enumerate(loader)]))  # compute mean value for normalization
+        sample_size = len(next(enumerate(loader))[1][0])
+        dataset_size = dataset.len / m_batch_size
+        z_noise = get_noise(m_batch_size, sample_size).double()  # 1 sample for indices
+        set_mean = torch.mean(
+            torch.stack([data for _, data in enumerate(loader)]))  # compute mean value for normalization
 
-    plot_initial()
-    plot_basis(np.array([0, 0, 0, 0, 0, 0, 0, 1]))
-    plot_basis(np.array([0, 0, 1, 0, 0, 0, 0, 0]))
-    plot_basis(np.array([0, 0, 0, 0, 0, 1, 0, 0]))
-    plot_basis(np.array([1, 0, 0, 0, 0, 0, 0, 0]))
+        '''plot_initial()
+        plot_basis(np.array([0, 0, 0, 0, 0, 0, 0, 1]))
+        plot_basis(np.array([1, 0, 0, 0, 0, 0, 0, 0]))
+        plot_basis(np.array([0, 0, 1, 0, 0, 0, 0, 0]))
+        plot_basis(np.array([0, 0, 0, 0, 0, 1, 0, 0]))'''
 
-    dataset_size = dataset.len / m_batch_size
-    start = time.time()
-    # index, data = next(enumerate(loader))
+        gen_fixed_clever = Generator(prepare_indices(z_noise[0]), torch.from_numpy(np.array(weights_for_generation)))
+        dis_trainable = Discriminator(sample_size)
+        gen_fixed_silly = Generator(prepare_indices(z_noise[0]), weights_random)
 
-    all_losses_g = []
-    all_losses_d = []
-    current_loss_g = 0
-    current_loss_d = 0
-    z_noise = get_noise(m_batch_size, sample_size).double()  # 1 sample for indices
-    dis = Discriminator(sample_size, n_hidden)
-    gen = Generator(prepare_indices(z_noise[0]), torch.from_numpy(np.array(weights_for_generation)))
-    for iter in range(epochs):
-        for index, data in enumerate(loader):
-            z_noise = get_noise(m_batch_size, sample_size).double()
-            x_real = data.double()
-            x_real = torch.add(-set_mean, torch.log(x_real))  # normalization
+        print("random weights for gen: ", weights_random)
+        optimizer = torch.optim.SGD(dis_trainable.parameters(), lr=0.01, momentum=0.9)
+        # optimizer = torch.optim.Adam(dis_trainable.parameters())
+        start = time.time()
+        all_losses_d = []
+        current_loss_d = 0
+        for iter in range(epochs_dis):
+            for index, data in enumerate(loader):
+                z_noise = get_noise(m_batch_size, sample_size).double()
+                x_real = data.double()
 
-            loss_d = train_dis(dis, gen, x_real, z_noise)
-            current_loss_d += loss_d
+                loss_d = train_dis(dis_trainable, gen_fixed_silly, x_real, z_noise, optimizer)
+                current_loss_d += loss_d
 
-            if index % 10 == 0:
-                print('%s (%d %d%%) %.10f' % (
-                    time_since(start), iter, index / dataset_size * epochs, loss_d))  # ! ,loss_g
+                if (index + 1) % 10 == 0:
+                    print('%s (%d %d%%) %.10f' % (
+                        time_since(start), iter, index / dataset_size * 100, loss_d))
+                if (index + 1) % plot_every == 0:
+                    all_losses_d.append(current_loss_d / plot_every)
+                    current_loss_d = 0
 
-            if index % plot_every == 0 and index != 0:
-                all_losses_d.append(current_loss_d / plot_every)
-                current_loss_d = 0
-    print("----------")
+        real = torch.stack([gen_fixed_clever.generate(z_noise[m]) for m in range(m_batch_size)]).squeeze(2)
+        print("chance of real data to be taken as real: ", dis_trainable(real))
+        fake = torch.stack([gen_fixed_silly.generate(z_noise[m]) for m in range(m_batch_size)]).squeeze(2)
+        print("chance of fake data to be taken as real (before training gen): ", dis_trainable(fake))
 
-    gen_trainable = Generator(prepare_indices(z_noise[0]), torch.rand((2, 2)).double())
-    for iter in range(epochs):
-        for index, data in enumerate(loader):
-            z_noise = get_noise(m_batch_size, sample_size).double()
-            x_real = data.double()
-            x_real = torch.add(-set_mean, torch.log(x_real))  # normalization
+        all_losses_g = []
+        current_loss_g = 0
+        for iter in range(epochs_gen):
+            for index, data in enumerate(loader):
+                z_noise = get_noise(m_batch_size, sample_size).double()
 
-            loss_g = train_gen(gen_trainable, dis, z_noise)  # !
-            current_loss_g += loss_g  # !
+                loss_g = train_gen(gen_fixed_silly, dis_trainable, z_noise)
+                current_loss_g += loss_g
 
-            if index % 10 == 0:
-                print('%s (%d %d%%) %.10f' % (
-                    time_since(start), iter, index / dataset_size * 100, loss_g))  # ! ,loss_g
+                if index % 1 == 0:
+                    print('%s (%d %d%%) %.10f' % (time_since(start), iter, index / dataset_size * 100, loss_g))
+                if index % 1 == 0:
+                    all_losses_g.append(current_loss_g / plot_every)
+                    current_loss_g = 0
 
-            if index % plot_every == 0 and index != 0:
-                all_losses_g.append(current_loss_g / plot_every)
-                current_loss_g = 0
+        print("trained generator's weights: ", gen_fixed_silly.A)
+        fake_after_train = torch.stack([gen_fixed_silly.generate(z_noise[m]) for m in range(m_batch_size)]).squeeze(2)
+        print("chance of fake data to be taken as real(after training gen): ", dis_trainable(fake_after_train))
 
-    plot_losses(all_losses_d, all_losses_g)  # !
+        plot_losses(all_losses_d, all_losses_g)
+
+        # TRAINING IN PARALLEL (vanilla)
+        all_losses_g = []
+        all_losses_d = []
+        current_loss_g = 0
+        current_loss_d = 0
+        dis_silly = Discriminator(sample_size)
+        gen_silly = Generator(prepare_indices(z_noise[0]), weights_random)
+        optimizer = torch.optim.SGD(dis_silly.parameters(), lr=0.01, momentum=0.9)
+        start = time.time()
+        for epoch in range(epochs_parallel):
+            for index, data in enumerate(loader):
+                for k_step in range(k):
+                    z_noise = get_noise(m_batch_size, sample_size).double()
+                    x_real = data.double()
+
+                    loss_d = train_dis(dis_silly, gen_silly, x_real, z_noise, optimizer)
+                    current_loss_d += loss_d
+
+                z_noise = get_noise(m_batch_size, sample_size).double()
+                loss_g = train_gen(gen_silly, dis_silly, z_noise)
+                current_loss_g += loss_g
+
+                if (index + 1) % 5 == 0:
+                    print('%s (%d %d%%) %.10f %10f' % (
+                        time_since(start), epoch, (index + 1) / dataset_size * 100, loss_d, loss_g))
+
+                if (index + 1) % plot_every == 0:
+                    all_losses_d.append(current_loss_d / plot_every)
+                    all_losses_g.append(current_loss_g / plot_every)
+                    current_loss_d = 0
+                    current_loss_g = 0
+
+        plot_losses_together(all_losses_g, all_losses_d)
+
+        # TESTING PARALLEL
+        for i in range(10):
+            real_for_pred = torch.stack([gen_fixed_clever.generate(z_noise[m]) for m in range(m_batch_size)]).squeeze(2)
+            fake_for_pred = torch.stack([gen_silly.generate(z_noise[m]) for m in range(m_batch_size)]).squeeze(2)
+            prediction_fake = dis_silly(fake_for_pred)
+            prediction_real = dis_silly(real_for_pred)
+            print("chance that fake is taken for real: ", prediction_fake)
+            print("chance that real is taken for real: ", prediction_real)
+
+
+main()
