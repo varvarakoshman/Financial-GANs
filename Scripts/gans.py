@@ -193,8 +193,8 @@ def train_parallel_cycle(mode, loader):
     gradients = []
     current_loss_g = 0
     current_loss_d = 0
-    optimizer = torch.optim.SGD(dis_silly.parameters(), lr=0.005, momentum=0.9)
-    # optimizer = torch.optim.SGD(dis_silly.parameters(), lr=0.001)
+    # optimizer = torch.optim.SGD(dis_silly.parameters(), lr=0.005, momentum=0.9)
+    optimizer = torch.optim.SGD(dis_silly.parameters(), lr=0.001)
     start = time.time()
     for epoch in range(epochs_parallel):
         for index, data in enumerate(loader):
@@ -299,14 +299,15 @@ if __name__ == '__main__':
     dataset_size = dataset_real.len / m_batch_size
     noise = get_noise(m_batch_size, sample_size).double()  # 1 sample for
 
+    dis_accuracy = []
     # 1. train discriminator
     gen_fixed_clever = Generator(prepare_indices(noise[0]), torch.from_numpy(np.array(weights_for_generation)))
     dis_trainable = Discriminator(sample_size)
     gen_fixed_silly = Generator(prepare_indices(noise[0]), weights_random)
     print("random weights for gen: ", weights_random)
     losses_d = []
-    # losses_d = dis_training_cycle('generated', loader)
-    # losses_d = dis_training_cycle('real', loader_real)
+    losses_d = dis_training_cycle('generated', loader)
+    losses_d = dis_training_cycle('real', loader_real)
 
     real = torch.stack([gen_fixed_clever.generate(noise[m]) for m in range(m_batch_size)]).squeeze(2)
     print("chance of real data to be taken as real: ", dis_trainable(real)[1])
@@ -315,19 +316,19 @@ if __name__ == '__main__':
 
     # 2. train generator
     dis_silly_for_gen = Discriminator(sample_size)
-    # losses_g, grad_gen = gen_training_cycle(loader)
-    # losses_g, grad_gen = gen_training_cycle(loader_real)
+    losses_g, grad_gen = gen_training_cycle(loader)
+    losses_g, grad_gen = gen_training_cycle(loader_real)
     print("trained generator's weights: ", gen_fixed_silly.A)
 
     # 3. training in parallel
     dis_accuracy = []
     dis_silly = Discriminator(sample_size)
     gen_silly = Generator(prepare_indices(noise[0]), weights_random)
-    losses_d_parallel, losses_g_parallel, grad_both = train_parallel_cycle('generated', loader)
-    # losses_d_parallel, losses_g_parallel, grad_both = train_parallel_cycle('real', loader_real)
+    # losses_d_parallel, losses_g_parallel, grad_both = train_parallel_cycle('generated', loader)
+    losses_d_parallel, losses_g_parallel, grad_both = train_parallel_cycle('real', loader_real)
     print("trained generator's weights: ", gen_silly.A)
-    test_parallel()
-    plot_all()
-    # plot_losses_together(losses_d_parallel, losses_g_parallel)
-    # plot_gradient(grad_both)
-    # test_parallel_real()
+    # test_parallel()
+    # plot_all()
+    plot_losses_together(losses_d_parallel, losses_g_parallel)
+    plot_gradient(grad_both)
+    test_parallel_real()

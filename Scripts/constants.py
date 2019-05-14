@@ -3,12 +3,12 @@ import numpy as np
 
 learning_rate_dis = 0.01
 learning_rate_gen = 0.001
-learning_rate_gen_p = 0.01  # 0.001
-epochs_dis = 10  # 2
-epochs_gen = 20  # 2 # для сген. 30
-epochs_parallel = 5  # 10
+learning_rate_gen_p = 0.001  # 0.01
+epochs_dis = 2  # 10
+epochs_gen = 2  # 20 # для сген. 30
+epochs_parallel = 10  # 5
 print_every = 10  # 10
-plot_every = 5  # 10
+plot_every = 1  # 5
 m_batch_size = 4
 dataset_size_to_generate = 100
 hardcoded_n_in_batch = 4  # set in java code when downloading real data
