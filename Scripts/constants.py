@@ -3,7 +3,7 @@ import numpy as np
 
 learning_rate_dis = 0.01
 learning_rate_gen = 0.001
-learning_rate_gen_p = 0.01  # 0.001
+learning_rate_gen_p = 0.001  # 0.001
 epochs_dis = 10  # 2
 epochs_gen = 30  # 2
 epochs_parallel = 20  # 10

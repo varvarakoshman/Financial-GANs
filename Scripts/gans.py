@@ -128,7 +128,7 @@ def train_gen(gen_trainable, gen_fixed_clever, dis_fixed_silly, z_noise, alpha, 
 def train_dis(d_trainable, g_fixed_silly, x_real, z_noise, optimizer):
     optimizer.zero_grad()
     fake_all_m = torch.stack([g_fixed_silly.generate(z_noise[m]) for m in range(m_batch_size)]).squeeze(2)
-    _, out_real = d_trainable(x_real)
+    _, out_real = d_trainable(x_real + torch.DoubleTensor(m_batch_size, sample_size).normal_(0, 1)) # NOISE ADDED
     loss_real = binary_cross_entropy(out_real, torch.ones(out_real.shape[0]).long()).squeeze(1)
     _, out_fake_all_m = d_trainable(fake_all_m)
     loss_fake = binary_cross_entropy(out_fake_all_m, torch.zeros(out_fake_all_m.shape[0]).long()).squeeze(1)
@@ -167,8 +167,8 @@ def gen_training_cycle(loader):
     current_loss_g = 0
     gradients = []
     start = time.time()
-    optimizer = torch.optim.Adam([gen_fixed_silly.A], lr=learning_rate_gen)
-    # optimizer = torch.optim.SGD([gen_fixed_silly.A], lr=learning_rate_gen, momentum=0.9)
+    # optimizer = torch.optim.Adam([gen_fixed_silly.A], lr=learning_rate_gen)
+    optimizer = torch.optim.SGD([gen_fixed_silly.A], lr=learning_rate_gen, momentum=0.9)
     # optimizer = torch.optim.SGD([gen_fixed_silly.A], lr=learning_rate_gen)
     for iter in range(epochs_gen):
         for index, data in enumerate(loader):
@@ -195,6 +195,7 @@ def train_parallel_cycle(mode, loader):
     current_loss_d = 0
     # optimizer = torch.optim.SGD(dis_silly.parameters(), lr=0.005, momentum=0.9)
     optimizer = torch.optim.SGD(dis_silly.parameters(), lr=0.001, momentum=0.9)
+    # optimizer_gen = torch.optim.SGD([gen_fixed_silly.A], lr=learning_rate_gen_p, momentum=0.9)
     optimizer_gen = torch.optim.Adam([gen_fixed_silly.A], lr=learning_rate_gen_p)
     # optimizer = torch.optim.SGD(dis_silly.parameters(), lr=0.001)
     start = time.time()
@@ -328,7 +329,7 @@ if __name__ == '__main__':
     # 3. training in parallel
     dis_accuracy = []
     dis_silly = Discriminator(sample_size)
-    gen_silly = Generator(prepare_indices(noise[0]), torch.Tensor(2, 2).uniform_(0, 1))
+    gen_silly = Generator(prepare_indices(noise[0]), torch.Tensor(2, 2).uniform_(-1, 1))
     losses_d_parallel, losses_g_parallel, grad_both = train_parallel_cycle('generated', loader)
     # losses_d_parallel, losses_g_parallel, grad_both = train_parallel_cycle('real', loader_real)
     print("trained generator's weights: ", gen_silly.A)
