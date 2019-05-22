@@ -58,7 +58,7 @@ class Generator:
                     2)
                 temp2[indices_unique[j]] = slice
                 result = result * temp1 + temp2
-        # result = torch.tanh(result)  # adding non-linearity
+        result = torch.tanh(result)  # adding non-linearity
         result = result.view(x_len, 1)
         return result
 
@@ -318,7 +318,7 @@ if __name__ == '__main__':
     dis_trainable.layer1.weight.data.fill_(0)
     dis_trainable.layer2.weight.data.fill_(0)
     dis_trainable.layer1.bias.data.fill_(0)
-    dis_trainable.layer2.bias.data.fill_(0.4)
+    dis_trainable.layer2.bias.data.fill_(0.45)
 
     weights_random = torch.Tensor(2, 2).uniform_(0, 1)
     # weights_random = torch.from_numpy(np.array([[0.65, 0.85], [0.05, 0.55]]))
@@ -329,9 +329,9 @@ if __name__ == '__main__':
     # losses_d = dis_training_cycle('real', loader_real)
 
     real = torch.stack([gen_fixed_clever.generate(noise[m]) for m in range(m_batch_size)]).squeeze(2)
-    print("chance of real data to be taken as real: ", dis_trainable(real)[1])
+    # print("chance of real data to be taken as real: ", dis_trainable(real)[1])
     fake = torch.stack([gen_fixed_silly.generate(noise[m]) for m in range(m_batch_size)]).squeeze(2)
-    print("chance of fake data to be taken as real: ", dis_trainable(fake)[1])
+    # print("chance of fake data to be taken as real: ", dis_trainable(fake)[1])
 
     # 2. train generator
     dis_silly_for_gen = Discriminator(sample_size)
@@ -351,7 +351,7 @@ if __name__ == '__main__':
     plot_gen_true_fake(gen_silly, gen_fixed_clever, sample_size)
     # losses_d_parallel, losses_g_parallel, grad_both = train_parallel_cycle('real', loader_real)
     print("trained generator's weights: ", gen_silly.A)
-    test_parallel()
+    # test_parallel()
 
     x_real = next(enumerate(loader))[1]
 
