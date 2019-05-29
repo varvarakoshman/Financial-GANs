@@ -1,18 +1,19 @@
 import torch
 import numpy as np
 
-learning_rate_dis = 0.01
-learning_rate_gen = 0.03
-learning_rate_gen_p = 0.03  # 0.001
+learning_rate_dis = 0.03
+learning_rate_gen = 0.003
+learning_rate_gen_p = 0.0005  # 0.001
 epochs_dis = 20  # 2
 epochs_gen = 50  # 2
-epochs_parallel = 30  # 10
+epochs_parallel = 60  # 10
 print_every = 10  # 10
 plot_every = 1  # 10
 m_batch_size = 8
 dataset_size_to_generate = 128
 hardcoded_n_in_batch = 4  # set in java code when downloading real data
 size_for_basis_plot = 8
+epsilon = 0.03
 k = 5  # 1  # number of steps to apply to generator
 # weights_for_generation = [[0.9, 0.6], [0.9, 0.2]]
 weights_for_generation = [[0.7, 0.9], [0.1, 0.6]]

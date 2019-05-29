@@ -89,9 +89,8 @@ def plot_basis(gen):
         plt.show()
 
 
-def plot_gen_true_fake(gen_trained, gen_clever, sample_size):
+def plot_gen_true_fake(gen_trained, gen_clever, sample_size, noise):
     for i in range(1):
-        noise = get_noise(1, sample_size).double()
         ax1 = plt.subplot()
         ax1.plot(gen_trained.generate(noise[0]).detach().numpy(), 'g', label='generated_fake')
         ax1.legend()
