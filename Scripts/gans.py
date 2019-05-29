@@ -177,6 +177,31 @@ def dis_training_cycle(mode, loader):
     return all_losses_d
 
 
+def dis_pre_training_cycle(mode, loader):
+    optimizer = torch.optim.Adam(dis_silly.parameters(), lr=learning_rate_dis)
+    all_losses_d = []
+    current_loss_d = 0
+    start = time.time()
+    for iter in range(epochs_dis):
+        for index, data in enumerate(loader):
+            z_noise = get_noise(m_batch_size, sample_size).double()
+            x_real = data.double()
+            if mode == 'real':
+                x_real = torch.add(-set_mean, torch.log(x_real))  # normalization
+            if not (0.45 - epsilon < torch.mean(dis_silly(x_real)[1]) < 0.45 + epsilon \
+                    or 0.55 - epsilon < torch.mean(dis_silly(x_real)[1]) < 0.55 + epsilon):
+                loss_d = train_dis(dis_silly, gen_fixed_silly, x_real, z_noise, optimizer)
+                current_loss_d += loss_d
+                if (index + 1) % print_every == 0:
+                    print('%s (%d %d%%) %.10f' % (time_since(start), iter, index / dataset_size * 100, loss_d))
+                if (index + 1) % plot_every == 0:
+                    all_losses_d.append(current_loss_d / plot_every)
+                    current_loss_d = 0
+            else:
+                return all_losses_d
+    return all_losses_d
+
+
 def gen_training_cycle(loader):
     all_losses_g = []
     current_loss_g = 0
@@ -274,12 +299,13 @@ def plot_all():
 
 def test_parallel():
     for i in range(10):
+        noise = get_noise(m_batch_size, sample_size).double()
         real_for_pred = torch.stack([gen_fixed_clever.generate(noise[m]) for m in range(m_batch_size)]).squeeze(2)
         fake_for_pred = torch.stack([gen_silly.generate(noise[m]) for m in range(m_batch_size)]).squeeze(2)
         _, prediction_fake = dis_silly(fake_for_pred)
         _, prediction_real = dis_silly(real_for_pred)
-        print("chance that fake is taken for real: ", prediction_fake)
-        print("chance that real is taken for real: ", prediction_real)
+        print("chance that fake is taken for real: ", torch.mean(prediction_fake))
+        print("chance that real is taken for real: ", torch.mean(prediction_real))
 
 
 def test_parallel_real():
@@ -364,30 +390,39 @@ if __name__ == '__main__':
     # 3. training in parallel
     dis_accuracy = []
     dis_silly = Discriminator(sample_size)
+    # real = torch.stack([gen_fixed_clever.generate(noise[m]) for m in range(m_batch_size)]).squeeze(2)
+    # print("chance of real data to be taken as real: ", dis_silly(real)[1])
+    # fake = torch.stack([gen_fixed_silly.generate(noise[m]) for m in range(m_batch_size)]).squeeze(2)
+    # print("chance of fake data to be taken as real: ", dis_silly(fake)[1])
+
+    # losses_d_pre = dis_pre_training_cycle('generated', loader)
+
+    real = torch.stack([gen_fixed_clever.generate(noise[m]) for m in range(m_batch_size)]).squeeze(2)
+    fake = torch.stack([gen_fixed_silly.generate(noise[m]) for m in range(m_batch_size)]).squeeze(2)
+    print("chance of real data to be taken as real: ", dis_silly(real)[1])
+    print("chance of fake data to be taken as real: ", dis_silly(fake)[1])
+    # plot_losses(losses_d, [])
+
     gen_silly = Generator(prepare_indices(noise[0]), torch.Tensor(2, 2).uniform_(0, 1))
     print("random weights for gen: ", gen_silly.A)
-    noise = get_noise(1, sample_size).double()
-    # plot_gen_true_fake(gen_silly, gen_fixed_clever, sample_size, noise)
+    noise_2 = get_noise(1, sample_size).double()
+    plot_gen_true_fake(gen_silly, gen_fixed_clever, sample_size, noise_2)
     losses_d_parallel, losses_g_parallel, grad_both = train_parallel_cycle('generated', loader)
-    # plot_gen_true_fake(gen_silly, gen_fixed_clever, sample_size, noise)
+    real_after = torch.stack([gen_fixed_clever.generate(noise[m]) for m in range(m_batch_size)]).squeeze(2)
+    fake_after = torch.stack([gen_silly.generate(noise[m]) for m in range(m_batch_size)]).squeeze(2)
+    print("chance of real data to be taken as real: ", torch.mean(dis_silly(real_after)[1]))
+    print("chance of fake data to be taken as real: ", torch.mean(dis_silly(fake_after)[1]))
+    plot_gen_true_fake(gen_silly, gen_fixed_clever, sample_size, noise_2)
     # losses_d_parallel, losses_g_parallel, grad_both = train_parallel_cycle('real', loader_real)
     print("trained generator's weights: ", gen_silly.A)
-    # test_parallel()
+    test_parallel()
 
     x_real = next(enumerate(loader))[1]
 
     # print(dis_trainable(x_real.double()))
     # exit(1)
 
-    z_noise = get_noise(m_batch_size, sample_size).double()
-    fake_all_m = torch.stack([gen_fixed_silly.generate(z_noise[m]) for m in range(m_batch_size)]).squeeze(2)
-    _, out_real = dis_silly(x_real.double())
-    loss_real = binary_cross_entropy(out_real, torch.ones(out_real.shape[0]).long()).squeeze(1)
-    _, out_fake_all_m = dis_silly(fake_all_m)
-    loss_fake = binary_cross_entropy(out_fake_all_m, torch.zeros(out_fake_all_m.shape[0]).long()).squeeze(1)
-    loss_mean = - torch.mean(loss_fake) - torch.mean(loss_real)
-    # print("pabam: ", loss_mean)
     # plot_all()
     plot_losses_together(losses_d_parallel, losses_g_parallel)
-    # plot_gradient(grad_both)
+    plot_gradient(grad_both)
     # test_parallel_real()
