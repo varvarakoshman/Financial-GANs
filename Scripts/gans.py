@@ -372,7 +372,7 @@ if __name__ == '__main__':
     # plot_losses(losses_d, [])
 
     # 2. train generator
-    dis_silly_for_gen = Discriminator(sample_size)
+    '''dis_silly_for_gen = Discriminator(sample_size)
     losses_g = []
     print("random generator's weights: ", gen_fixed_silly.A)
     plot_gen_true_fake(gen_fixed_silly, gen_fixed_clever, sample_size, noise)
@@ -385,7 +385,8 @@ if __name__ == '__main__':
     # losses_g, grad_gen = gen_training_cycle(loader_real)
     print("trained generator's weights: ", gen_fixed_silly.A)
     plot_losses(losses_d, losses_g)
-    plot_gradient(grad_gen)
+    plot_gradient(grad_gen)'''
+
     # 3. training in parallel
     dis_accuracy = []
     dis_silly = Discriminator(sample_size)
