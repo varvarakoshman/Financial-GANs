@@ -17,7 +17,7 @@
   
  
  **Cходимость дискриминатора (генератор фиксирован):**
- Вывод:
+* Вывод:
 * 0m 1s (0 45%) 1.3860585106
 * 0m 2s (0 95%) 1.2752637272
 * 0m 4s (1 45%) 1.2533146035
@@ -51,13 +51,14 @@
 *         [0.0696],
 *         [0.0382]], dtype=torch.float64, grad_fn=<SigmoidBackward>)
 
+**Feature matching:**
+![fm:](images/feature_matching.PNG)
 
 **Сходимости генератора:**
-**ВЕСЫ, КОТОРЫЕ НАДО ВОССТАНОВИТЬ:**
+**ВЕСА, КОТОРЫЕ НАДО ВОССТАНОВИТЬ:**
 **[[0.7, 0.9], [0.1, 0.6]]**
-**для случая: Adam, lr = 0.01, MSE loss:**
-random generator's weights:  tensor([[0.4486, 0.3011],
-        [0.5370, 0.7040]], requires_grad=True)
+
+* _random generator's weights:  tensor([[0.4486, 0.3011],[0.5370, 0.7040]], requires_grad=True)_
 * 0m 2s (0 56%) 0.0154224870
 * 0m 6s (1 56%) 0.0110635244
 * 0m 9s (2 56%) 0.0078415594
@@ -108,10 +109,8 @@ random generator's weights:  tensor([[0.4486, 0.3011],
 * 2m 14s (47 56%) 0.0000122516
 * 2m 17s (48 56%) 0.0000100133
 * 2m 20s (49 56%) 0.0000047243
-* trained generator's weights:  tensor([[0.7452, 0.8513],
-        [0.0876, 0.6137]], requires_grad=True)
+* _trained generator's weights:  tensor([[0.7452, 0.8513],[0.0876, 0.6137]], requires_grad=True)_
 * Веса почти восстанавливаются !
-* // PS надо подправить проценты
 
 **График сходимости:**
 ![График сходимости:](images/gen_separately_loss.PNG)
@@ -119,31 +118,13 @@ random generator's weights:  tensor([[0.4486, 0.3011],
 **Градиент:**
 ![График сходимости:](images/gen_separately_grad.PNG)
 
-* Вывод генератора до обучения vs Вывод генератора после обучения vs Вывод идеального генератора:
+**Вывод генератора до обучения vs Вывод генератора после обучения vs Вывод идеального генератора:**
 ![Выводы генераторов:](images/gen_separately_together.PNG)
 
 **Параллельное обучение:**
-* НЕСКОЛЬКО РАЗНЫХ ВАРИАНТОВ 
-* просто разные запуски
-* Вариант №1 (для себя №4)
-. chance of real data to be taken as real:  tensor([[0.5945],
-        [0.5958],
-        [0.6013],
-        [0.5914],
-        [0.5969],
-        [0.5959],
-        [0.5974],
-        [0.5932]], dtype=torch.float64, grad_fn=<SigmoidBackward>)
-chance of fake data to be taken as real:  tensor([[0.6066],
-        [0.6066],
-        [0.6066],
-        [0.6066],
-        [0.6066],
-        [0.6066],
-        [0.6066],
-        [0.6066]], dtype=torch.float64, grad_fn=<SigmoidBackward>)
-random weights for gen:  tensor([[0.7013, 0.2865],
-        [0.3379, 0.6478]], requires_grad=True)
+* НЕСКОЛЬКО РАЗНЫХ ВАРИАНТОВ (просто разные запуски)
+* Вариант №1 (для себя №4) 
+* _random weights for gen:  tensor([[0.7013, 0.2865],[0.3379, 0.6478]], requires_grad=True)_
 * 0m 4s (0 62%) 0.7743799807   0.184571
 * 0m 10s (1 62%) 0.1949732553   0.464515
 * 0m 15s (2 62%) 0.0340420976   0.589572
@@ -194,11 +175,10 @@ random weights for gen:  tensor([[0.7013, 0.2865],
 * 4m 24s (47 62%) 1.3759680783   0.073276
 * 4m 30s (48 62%) 1.3451116476   0.037707
 * 4m 35s (49 62%) 1.3781810689   0.032367
-* chance of real data to be taken as real:  tensor(0.5222, dtype=torch.float64, grad_fn=<MeanBackward1>)
-* chance of fake data to be taken as real:  tensor(0.5141, dtype=torch.float64, grad_fn=<MeanBackward1>)
-* chance of random data to be taken as real:  tensor(0.8023, dtype=torch.float64, grad_fn=<MeanBackward1>)
-* trained generator's weights:  tensor([[0.9630, 0.6429],
-        [0.1744, 0.5021]], requires_grad=True)
+* _chance of real data to be taken as real:  tensor(0.5222, dtype=torch.float64, grad_fn=<MeanBackward1>)_
+* _chance of fake data to be taken as real:  tensor(0.5141, dtype=torch.float64, grad_fn=<MeanBackward1>)_
+* _chance of random data to be taken as real:  tensor(0.8023, dtype=torch.float64, grad_fn=<MeanBackward1>)_
+* _trained generator's weights:  tensor([[0.9630, 0.6429],[0.1744, 0.5021]], requires_grad=True)_
 
 **График сходимости:**
 ![График сходимости:](images/parallel4.PNG)
@@ -207,24 +187,7 @@ random weights for gen:  tensor([[0.7013, 0.2865],
 ![Вывод:](images/parallel4_plots_together.png)
 
 * Вариант №2 (для себя №7)
-chance of real data to be taken as real:  tensor([[0.5142],
-        [0.5185],
-        [0.5212],
-        [0.5281],
-        [0.5207],
-        [0.5173],
-        [0.5248],
-        [0.5253]], dtype=torch.float64, grad_fn=<SigmoidBackward>)
-chance of fake data to be taken as real:  tensor([[0.5157],
-        [0.5199],
-        [0.5203],
-        [0.5182],
-        [0.5209],
-        [0.5178],
-        [0.5176],
-        [0.5166]], dtype=torch.float64, grad_fn=<SigmoidBackward>)
-random weights for gen:  tensor([[0.4684, 0.5233],
-        [0.1190, 0.3040]], requires_grad=True)
+* _random weights for gen:  tensor([[0.4684, 0.5233],[0.1190, 0.3040]], requires_grad=True)_
 * 0m 4s (0 62%) 0.3959780208   1.284456
 * 0m 11s (1 62%) 0.1583677814   1.421589
 * 0m 18s (2 62%) 0.5935246872   1.118816
@@ -285,10 +248,9 @@ random weights for gen:  tensor([[0.4684, 0.5233],
 * 5m 3s (57 62%) 1.1449872339   0.017756
 * 5m 8s (58 62%) 1.3731293238   0.027615
 * 5m 13s (59 62%) 1.3185381122   0.017038
-* chance of real data to be taken as real:  tensor(0.5437, dtype=torch.float64, grad_fn=<MeanBackward1>)
-* chance of fake data to be taken as real:  tensor(0.4868, dtype=torch.float64, grad_fn=<MeanBackward1>)
-* trained generator's weights:  tensor([[0.7241, 0.7673],
-        [0.2036, 0.4599]], requires_grad=True)
+* _chance of real data to be taken as real:  tensor(0.5437, dtype=torch.float64, grad_fn=<MeanBackward1>)_
+* _chance of fake data to be taken as real:  tensor(0.4868, dtype=torch.float64, grad_fn=<MeanBackward1>)_
+* _trained generator's weights:  tensor([[0.7241, 0.7673],[0.2036, 0.4599]], requires_grad=True)_
 
 **График сходимости:**
 ![График сходимости:](images/parallel7.PNG)
@@ -300,25 +262,8 @@ random weights for gen:  tensor([[0.4684, 0.5233],
 ![Вывод:](images/parallel7_plots_together.png)
 
 
-* Вариант №3 (для себя №8) - неудачный, генератор не успевает достаточно обучиться
-* chance of real data to be taken as real:  tensor([[0.4308],
-        [0.4360],
-        [0.4300],
-        [0.4364],
-        [0.4330],
-        [0.4284],
-        [0.4331],
-        [0.4345]], dtype=torch.float64, grad_fn=<SigmoidBackward>)
-* chance of fake data to be taken as real:  tensor([[0.4196],
-        [0.4260],
-        [0.4178],
-        [0.4307],
-        [0.4226],
-        [0.4230],
-        [0.4259],
-        [0.4209]], dtype=torch.float64, grad_fn=<SigmoidBackward>)
-* random weights for gen:  tensor([[0.2685, 0.3547],
-        [0.8568, 0.2333]], requires_grad=True)
+* Вариант №3 (для себя №8) - не очень удачный, генератор не успевает достаточно обучиться
+* _random weights for gen:  tensor([[0.2685, 0.3547],[0.8568, 0.2333]], requires_grad=True)_
 * 0m 3s (0 62%) 0.2801649124   0.889693
 * 0m 9s (1 62%) 0.0481443910   1.952643
 * 0m 14s (2 62%) 0.0282223831   2.058037
@@ -379,10 +324,9 @@ random weights for gen:  tensor([[0.4684, 0.5233],
 * 5m 26s (57 62%) 1.0919176422   0.175138
 * 5m 31s (58 62%) 1.1299957097   0.223114
 * 5m 36s (59 62%) 1.0259687412   0.365407
-* chance of real data to be taken as real:  tensor(0.7717, dtype=torch.float64, grad_fn=<MeanBackward1>)
-* chance of fake data to be taken as real:  tensor(0.5402, dtype=torch.float64, grad_fn=<MeanBackward1>)
-* trained generator's weights:  tensor([[ 0.6501,  0.7490],
-        [ 0.6022, -0.0151]], requires_grad=True)
+* _chance of real data to be taken as real:  tensor(0.7717, dtype=torch.float64, grad_fn=<MeanBackward1>)_
+* _chance of fake data to be taken as real:  tensor(0.5402, dtype=torch.float64, grad_fn=<MeanBackward1>)_
+* _trained generator's weights:  tensor([[ 0.6501,  0.7490],[ 0.6022, -0.0151]], requires_grad=True)_
 
 **График сходимости:**
 ![График сходимости:](images/parallel8.PNG)
