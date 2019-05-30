@@ -39,17 +39,11 @@
 * 0m 24s (9 45%) 0.1052490930
 * 0m 24s (9 95%) 0.6381235720
 
-* chance of real data to be taken as real:  tensor([[0.4890],
-*         [0.9972],
-*         [0.9753],
-*         [0.9960],
-*         [0.9660]], dtype=torch.float64, grad_fn=<SigmoidBackward>)
+* _chance of real data to be taken as real:  tensor([[0.4890], [0.9972], [0.9753],
+ [0.9960],[0.9660]], dtype=torch.float64, grad_fn=<SigmoidBackward>)_
 
-* chance of fake data to be taken as real (before training gen):  tensor([[0.0411],
-*        [0.0446],
-*         [0.0391],
-*         [0.0696],
-*         [0.0382]], dtype=torch.float64, grad_fn=<SigmoidBackward>)
+* _chance of fake data to be taken as real (before training gen):  tensor([[0.0411],[0.0446],[0.0391],
+[0.0696],[0.0382]], dtype=torch.float64, grad_fn=<SigmoidBackward>)_
 
 **Feature matching:**
 ![fm:](images/feature_matching.PNG)
@@ -110,7 +104,7 @@
 * 2m 17s (48 56%) 0.0000100133
 * 2m 20s (49 56%) 0.0000047243
 * _trained generator's weights:  tensor([[0.7452, 0.8513],[0.0876, 0.6137]], requires_grad=True)_
-* Веса почти восстанавливаются !
+* _Веса почти восстанавливаются !_
 
 **График сходимости:**
 ![График сходимости:](images/gen_separately_loss.PNG)
@@ -313,7 +307,7 @@ TEST
 ![График сходимости:](images/parallel10_gen_grad.PNG)
 
 **Вывод:**
-![Вывод:](images/parallel10_plots_together.png)
+![Вывод:](images/parallel10_gen_plots_together.png)
 
 
 * Вариант №3 (для себя №11) - не очень удачный, генератор не успевает достаточно обучиться
@@ -500,4 +494,13 @@ TEST
 Параллельное обучение:
 **График сходимости:**
 ![График сходимости:](images/gen_real_losses.PNG)
+
+* _chance of real data to be taken as real:  tensor(0.7571, dtype=torch.float64, grad_fn=<MeanBackward1>)_
+* _chance of fake data to be taken as real:  tensor(0.3370, dtype=torch.float64, grad_fn=<MeanBackward1>)_
+* _trained generator's weights:  tensor([[ 0.5405, -0.3171],[ 0.5441, -0.2890]], requires_grad=True)_
+ 
+>lr_dis = 0.03, 
+>lr_gen = 0.003, 
+>epochs = 15, 
+>k = 3 (dis updates per 1 gen update)
 
