@@ -44,21 +44,21 @@ class Generator:
         dim = tuple([2 for _ in range(n_times)])
         x = x.view(*dim)
         result = x.double()
-        for i in range(n_times - 1, -1, -1):
-            indices_to_replace = deepcopy(self.indices)
-            for j in range(x_len):
-                indices_to_replace[:][j][i] = [0, 1]
+        for layer in range(len(self.A)):
+            for i in range(n_times - 1, -1, -1):
+                indices_to_replace = deepcopy(self.indices)
+                for j in range(x_len):
+                    indices_to_replace[:][j][i] = [0, 1]
 
-            indices_unique = remove_duplicates(indices_to_replace)
-            for j in range(len(indices_unique)):
-                temp1 = torch.ones(*dim).double()
-                temp1[indices_unique[j]] = torch.tensor([0, 0]).double()
-                temp2 = torch.zeros(*dim).double()
-                slice = torch.mm(result[indices_unique[j]].view(*(1, 2)), torch.transpose(self.A, 0, 1).double()).view(
-                    2)
-                temp2[indices_unique[j]] = slice
-                result = result * temp1 + temp2
-        result = torch.tanh(result)  # adding non-linearity
+                indices_unique = remove_duplicates(indices_to_replace)
+                for j in range(len(indices_unique)):
+                    temp1 = torch.ones(*dim).double()
+                    temp1[indices_unique[j]] = torch.tensor([0, 0]).double()
+                    temp2 = torch.zeros(*dim).double()
+                    slice = torch.mm(result[indices_unique[j]].view(*(1, 2)), torch.transpose(self.A[layer], 0, 1).double()).view(2)
+                    temp2[indices_unique[j]] = slice
+                    result = result * temp1 + temp2
+            result = torch.tanh(result)  # adding non-linearity
         result = result.view(x_len, 1)
         return result
 
@@ -183,7 +183,6 @@ def gen_training_cycle(mode, loader):
     gradients = []
     start = time.time()
     optimizer = torch.optim.Adam([gen_fixed_silly.A], lr=learning_rate_gen)
-    # sheduler = torch.optim.lr_scheduler.StepLR(optimizer, 20, gamma=0.1)
     # optimizer = torch.optim.SGD([gen_fixed_silly.A], lr=learning_rate_gen, momentum=0.9)
     # optimizer = torch.optim.SGD([gen_fixed_silly.A], lr=learning_rate_gen)
     # optimizer = torch.optim.ASGD([gen_fixed_silly.A], lr=learning_rate_gen)
@@ -214,9 +213,12 @@ def train_parallel_cycle(mode, loader):
     optimizer = torch.optim.Adam(dis_silly.parameters(), lr=learning_rate_dis)
     # optimizer_gen = torch.optim.SGD([gen_fixed_silly.A], lr=learning_rate_gen_p, momentum=0.9)
     optimizer_gen = torch.optim.Adam([gen_silly.A], lr=learning_rate_gen_p)
+    # scheduler = torch.optim.lr_scheduler.StepLR(optimizer, 2, gamma=0.1)
     # optimizer = torch.optim.SGD(dis_silly.parameters(), lr=0.001)
     start = time.time()
     for epoch in range(epochs_parallel):
+        # scheduler.step()
+        # print('epoch:', iter, 'lr:', scheduler.get_lr())
         for index, data in enumerate(loader):
             for k_step in range(k):
                 z_noise = get_noise(m_batch_size, sample_size).double()
@@ -338,7 +340,7 @@ if __name__ == '__main__':
     # dis_trainable.layer2.weight.data.fill_(0)
     # dis_trainable.layer2.bias.data.fill_(0.45)
 
-    weights_random = torch.Tensor(2, 2).uniform_(0, 1)
+    weights_random = torch.Tensor(2, 2, 2).uniform_(0, 1)
     # weights_random = torch.from_numpy(np.array([[0.65, 0.85], [0.05, 0.55]]))
     gen_fixed_silly = Generator(prepare_indices(noise[0]), weights_random)
     losses_d = []
@@ -354,13 +356,13 @@ if __name__ == '__main__':
     # 2. train generator
     dis_silly_for_gen = Discriminator(sample_size)
     losses_g = []
-    print("random generator's weights: ", gen_fixed_silly.A)
+    # print("random generator's weights: ", gen_fixed_silly.A)
     # plot_gen_true_fake(gen_fixed_silly, gen_fixed_clever, sample_size, noise)
-    # losses_g, grad_gen = gen_training_cycle(loader)
+    # losses_g, grad_gen = gen_training_cycle(loader, 'generated')
     # losses_g, grad_gen = gen_training_cycle(loader_real, 'real')
     z_noise = get_noise(m_batch_size, sample_size).double()
     fake_all_m = torch.stack([gen_fixed_silly.generate(z_noise[m]) for m in range(m_batch_size)]).squeeze(2)
-    _, out_real = dis_silly_for_gen(fake_all_m)
+    # _, out_real = dis_silly_for_gen(fake_all_m)
     # print(out_real)
     # plot_gen_true_fake(gen_fixed_silly, gen_fixed_clever, sample_size, noise)
     # print("trained generator's weights: ", gen_fixed_silly.A)
@@ -372,21 +374,15 @@ if __name__ == '__main__':
     dis_silly = Discriminator(sample_size)
     # real = torch.stack([gen_fixed_clever.generate(noise[m]) for m in range(m_batch_size)]).squeeze(2)
     # print("chance of real data to be taken as real: ", dis_silly(real)[1])
-    # fake = torch.stack([gen_fixed_silly.generate(noise[m]) for m in range(m_batch_size)]).squeeze(2)
-    # print("chance of fake data to be taken as real: ", dis_silly(fake)[1])
-
-    # losses_d_pre = dis_pre_training_cycle('generated', loader)
-
-    real = torch.stack([gen_fixed_clever.generate(noise[m]) for m in range(m_batch_size)]).squeeze(2)
     fake = torch.stack([gen_fixed_silly.generate(noise[m]) for m in range(m_batch_size)]).squeeze(2)
-    print("chance of real data to be taken as real: ", dis_silly(real)[1])
     print("chance of fake data to be taken as real: ", dis_silly(fake)[1])
+
     # plot_losses(losses_d, [])
 
-    gen_silly = Generator(prepare_indices(noise[0]), torch.Tensor(2, 2).uniform_(0, 1))
-    print("random weights for gen: ", gen_silly.A)
+    gen_silly = Generator(prepare_indices(noise[0]), torch.Tensor(2, 2, 2).uniform_(0, 1))
+    # print("random weights for gen: ", gen_silly.A)
     noise_2 = get_noise(1, sample_size).double()
-    plot_gen_true_fake(gen_silly, gen_fixed_clever, sample_size, noise_2)
+    # plot_gen_true_fake(gen_silly, gen_fixed_clever, sample_size, noise_2)
     # losses_d_parallel, losses_g_parallel, grad_both = train_parallel_cycle('generated', loader)
     losses_d_parallel, losses_g_parallel, grad_both = train_parallel_cycle('real', loader_real)
     # real_after = torch.stack([gen_fixed_clever.generate(noise[m]) for m in range(m_batch_size)]).squeeze(2)
@@ -394,8 +390,8 @@ if __name__ == '__main__':
     fake_after = torch.stack([gen_silly.generate(noise[m]) for m in range(m_batch_size)]).squeeze(2)
     print("chance of real data to be taken as real: ", torch.mean(dis_silly(real_after)[1]))
     print("chance of fake data to be taken as real: ", torch.mean(dis_silly(fake_after)[1]))
-    plot_gen_true_fake(gen_silly, gen_fixed_clever, sample_size, noise_2)
-    print("trained generator's weights: ", gen_silly.A)
+    # plot_gen_true_fake(gen_silly, gen_fixed_clever, sample_size, noise_2)
+    # print("trained generator's weights: ", gen_silly.A)
     # test_parallel()
 
     # plot_all()
